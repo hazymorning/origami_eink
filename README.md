@@ -5,7 +5,7 @@
 </p>
 
 A complete 800 × 480 e-ink dashboard in **one** [Paper Buttons Row](https://github.com/jcwillox/lovelace-paper-buttons-row) card.
-[Puppet](https://github.com/balloob/home-assistant-addons/tree/main/puppet) screenshots it, the display shows the image. No display code.
+[Puppet](https://github.com/balloob/home-assistant-addons/tree/main/puppet) screenshots it, the display shows the image.
 
 ## Setup
 
