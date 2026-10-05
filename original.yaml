@@ -1,0 +1,558 @@
+# My personal e-ink card (Paper Buttons Row, 800 × 480, German).
+# Uses my own sensors (DWD warnings, Tandoor dinner, calendar, cat feeding, display battery).
+# Want to build your own? Start with card.yaml.
+type: custom:paper-buttons-row
+styles:
+  display: grid
+  width: 800px
+  background: linear-gradient(90deg, black 335px, white 335px)
+  --pbs-button-bg-color: transparent
+  grid-template-columns: 30px 94px 26px 155px 30px 35px 82px 30px 118px 1fr 35px
+  grid-template-rows: >-
+    30px 44px 16px 2px 32px 6px 82px 6px 32px 82px 38px 30px 12px 2px 12px 30px
+    24px
+  grid-template-areas: >-
+    ". . . . . . . . . . ." ". wt wt wt . . da da da da ." ". . . . . . . . . .
+    ." ". rl rl rl . . rc rc rc rc ." ". . . . . . . . . . ." ". wi . tp . . . .
+    . . ." ". wi . tp . . b1 . e1 e1 ." ". wi . tp . . . . . . ." ". fc fc fc .
+    . . . . . ." ". fc fc fc . . b2 . e2 e2 ." ". fc fc fc . . . . . . ." ". fc
+    fc fc . . ca ca ca ca ." ". fc fc fc . . . . . . ." ". fc fc fc . . rd rd rd
+    rd ." ". fc fc fc . . . . . . ." ". fc fc fc . . fl fl fl fr ." ". . . . . .
+    . . . . ."
+base_config:
+  layout: name
+  tap_action:
+    action: none
+  styles:
+    button:
+      padding: 0px
+      justify-content: flex-start
+      background: transparent
+      box-shadow: none
+      border-radius: 0px
+    icon:
+      color: black
+      margin-right: 8px
+    name:
+      padding: 0px
+      white-space: nowrap
+      overflow: hidden
+      font-size: 22px
+      font-weight: 500
+      color: black
+    state:
+      padding: 0px
+      white-space: nowrap
+      overflow: hidden
+      font-size: 22px
+      font-weight: 500
+      color: black
+buttons:
+  - layout: state
+    state: >-
+      {% set t = state_attr('sensor.klimasensor_balkon', 'temperatur') |
+      float(none) %}{{ ((t | round(0) | int) ~ '°') if t is not none else '–' }}
+    styles:
+      button:
+        grid-area: tp
+        align-self: center
+      state:
+        width: 100%
+        text-align: left
+        font-size: 90px
+        font-weight: 800
+        line-height: 90px
+        color: white
+  - entity: input_text.wettervorhersage_stundlich
+    layout: name_state
+    name: >-
+      {% set a = state_attr('sensor.wetter_heute', 'temp_min') | float(none)
+      %}{% set b = state_attr('sensor.wetter_heute', 'temp_max') | float(none)
+      %}{{ ((a | round(0) | int) ~ '°') if a is not none else '–' }} bis {{ ((b
+      | round(0) | int) ~ '°') if b is not none else '–' }}
+    state: >-
+      {% set t = states('input_text.wettervorhersage_stundlich') %}{% set f = t
+      if t not in ['unknown', 'unavailable', 'none', ''] else 'Keine Vorhersage'
+      %}{% set lvl =
+      states('sensor.grosse_kreisstadt_dachau_aktuelle_warnstufe') | int(0) %}{%
+      set c = state_attr('sensor.grosse_kreisstadt_dachau_aktuelle_warnstufe',
+      'warning_count') | int(0) %}{% set best = namespace(name='') %}{% for i in
+      range(1, c + 1) %}{% if not best.name and
+      state_attr('sensor.grosse_kreisstadt_dachau_aktuelle_warnstufe',
+      'warning_' ~ i ~ '_level') | int(0) == lvl %}{% set best.name =
+      state_attr('sensor.grosse_kreisstadt_dachau_aktuelle_warnstufe',
+      'warning_' ~ i ~ '_name') | default('', true) %}{% endif %}{% endfor %}{{
+      (('Warnung: ' ~ (best.name | capitalize) ~ '. ') if lvl > 0 and best.name
+      else (('Warnung Stufe ' ~ lvl ~ '. ') if lvl > 0 else '')) ~ f }}
+    styles:
+      button:
+        grid-area: fc
+        align-self: end
+        align-items: flex-start
+        max-height: 208px
+        overflow: hidden
+      name:
+        width: 100%
+        margin-bottom: 16px
+        text-align: left
+        white-space: normal
+        font-size: 34px
+        font-weight: 700
+        line-height: 34px
+        color: white
+      state:
+        width: 100%
+        text-align: left
+        white-space: normal
+        text-wrap: balance
+        font-size: 24px
+        font-weight: 500
+        line-height: 32px
+        color: white
+  - layout: icon
+    icon: mdi:weather-cloudy
+    state_icons:
+      sunny: mdi:weather-sunny
+      clear-night: mdi:weather-night
+      partlycloudy: mdi:weather-partly-cloudy
+      cloudy: mdi:weather-cloudy
+      fog: mdi:weather-fog
+      rainy: mdi:weather-rainy
+      pouring: mdi:weather-pouring
+      snowy: mdi:weather-snowy
+      snowy-rainy: mdi:weather-snowy-rainy
+      hail: mdi:weather-hail
+      lightning: mdi:weather-lightning
+      lightning-rainy: mdi:weather-lightning-rainy
+      windy: mdi:weather-windy
+      windy-variant: mdi:weather-windy-variant
+      exceptional: mdi:weather-cloudy-alert
+    state: >-
+      {% set c = states('weather.dwd') %}{{ c if c not in ['unknown',
+      'unavailable', 'none', ''] else 'cloudy' }}
+    styles:
+      button:
+        grid-area: wi
+        align-self: center
+      icon:
+        --mdc-icon-size: 94px
+        margin-right: 0px
+        color: white
+  - name: >-
+      {{ state_attr('sensor.klimasensor_balkon', 'wetter_beschreibung') or '–'
+      }}
+    styles:
+      button:
+        grid-area: wt
+      name:
+        width: 100%
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 34px
+        font-weight: 700
+        line-height: 44px
+        color: white
+  - name: >-
+      {% set d = now() %}{{
+      (['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'][d.weekday()]
+      ~ ', ' ~ d.day ~ '. ' ~
+      ['Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'][d.month
+      - 1]) if d else '–' }}
+    styles:
+      button:
+        grid-area: da
+      name:
+        width: 100%
+        text-align: left
+        font-size: 34px
+        font-weight: 700
+        line-height: 44px
+  - name: ' '
+    styles:
+      button:
+        grid-area: rc
+        width: 100%
+        height: 2px
+        align-self: center
+        background: black
+        overflow: hidden
+      name:
+        font-size: 0px
+        line-height: 0
+  - name: ' '
+    styles:
+      button:
+        grid-area: rl
+        width: 100%
+        height: 2px
+        align-self: center
+        background: white
+        overflow: hidden
+      name:
+        font-size: 0px
+        line-height: 0
+  - layout: name_state
+    name: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else '' %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{% if m %}{{
+      ['MO','DI','MI','DO','FR','SA','SO'][now().weekday()] }}{% elif l | count
+      > 0 %}{{ ['MO','DI','MI','DO','FR','SA','SO'][(now() +
+      timedelta(days=l[0].days_until | int(0))).weekday()] }}{% else %} {% endif
+      %}
+    state: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else '' %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{% if m %}{{ now().day }}{%
+      elif l | count > 0 %}{{ (now() + timedelta(days=l[0].days_until |
+      int(0))).day }}{% else %} {% endif %}
+    styles:
+      button:
+        grid-area: b1
+        align-self: center
+        justify-content: center
+        box-sizing: border-box
+        width: 82px
+        height: 82px
+        border-style: solid
+        border-width: 2px
+        border-radius: 8px
+        overflow: hidden
+        background: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else ''
+          %}{% set l = state_attr('sensor.kalender', 'events') | default([],
+          true) | rejectattr('status', 'eq', 'past') | list %}{{ '#b40010' if m
+          or (l | count > 0 and (l[0].days_until | int(9)) == 0) else
+          'transparent' }}
+        border-color: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else ''
+          %}{% set l = state_attr('sensor.kalender', 'events') | default([],
+          true) | rejectattr('status', 'eq', 'past') | list %}{{ '#b40010' if m
+          or (l | count > 0 and (l[0].days_until | int(9)) == 0) else ('black'
+          if l | count > 0 else 'transparent') }}
+      name:
+        width: 100%
+        text-align: center
+        font-size: 20px
+        word-wrap: anywhere
+        hyphens: auto
+        font-weight: 700
+        letter-spacing: 2px
+        line-height: 22px
+        color: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else ''
+          %}{% set l = state_attr('sensor.kalender', 'events') | default([],
+          true) | rejectattr('status', 'eq', 'past') | list %}{{ 'white' if m or
+          (l | count > 0 and (l[0].days_until | int(9)) == 0) else 'black' }}
+      state:
+        width: 100%
+        text-align: center
+        word-wrap: anywhere
+        hyphens: auto
+        font-size: 30px
+        font-weight: 800
+        line-height: 34px
+        color: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else ''
+          %}{% set l = state_attr('sensor.kalender', 'events') | default([],
+          true) | rejectattr('status', 'eq', 'past') | list %}{{ 'white' if m or
+          (l | count > 0 and (l[0].days_until | int(9)) == 0) else 'black' }}
+  - layout: name_state
+    name: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else '' %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{{ m if m else ((l[0].summary
+      | default('–', true)) if l | count > 0 else 'Keine Termine') }}
+    state: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set m = m if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else '' %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{% if m %}Heute · Dinner{%
+      elif l | count > 0 %}{% set d = l[0].days_until | int(0) %}{% set n = d //
+      7 %}{% set w = ('in >' if d % 7 else 'in ') ~ n ~ (' Wochen' if n > 1 else
+      ' Woche') if 7 <= d and d < 28 else (l[0].starts_in | default('', true) |
+      string) %}{% set z = l[0].start_time | default('', true) | string %}{{
+      [w[:1] | upper ~ w[1:], '' if z | lower == 'ganztägig' else z] | select |
+      join(' · ') }}{% endif %}
+    styles:
+      button:
+        grid-area: e1
+        width: 100%
+        min-width: 0px
+        justify-content: flex-start
+        align-items: flex-start
+        overflow: hidden
+      name:
+        width: 100%
+        max-width: 283px
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 34px
+        font-weight: 800
+        line-height: 37px
+      state:
+        width: 100%
+        max-width: 283px
+        margin-top: 9px
+        word-wrap: anywhere
+        hyphens: auto
+        text-align: left
+        white-space: nowrap
+        overflow: hidden
+        text-overflow: ellipsis
+        font-size: 22px
+        font-weight: 500
+        line-height: 29px
+  - layout: name_state
+    name: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0 if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{% if l | count > k %}{{
+      ['MO','DI','MI','DO','FR','SA','SO'][(now() +
+      timedelta(days=l[k].days_until | int(0))).weekday()] }}{% else %} {% endif
+      %}
+    state: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0 if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{% if l | count > k %}{{
+      (now() + timedelta(days=l[k].days_until | int(0))).day }}{% else %} {%
+      endif %}
+    styles:
+      button:
+        grid-area: b2
+        align-self: center
+        justify-content: center
+        box-sizing: border-box
+        width: 82px
+        height: 82px
+        border-style: solid
+        border-width: 2px
+        border-radius: 8px
+        overflow: hidden
+        background: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{%
+          set l = state_attr('sensor.kalender', 'events') | default([], true) |
+          rejectattr('status', 'eq', 'past') | list %}{{ '#b40010' if l | count
+          > k and (l[k].days_until | int(9)) == 0 else 'transparent' }}
+        border-color: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{%
+          set l = state_attr('sensor.kalender', 'events') | default([], true) |
+          rejectattr('status', 'eq', 'past') | list %}{{ '#b40010' if l | count
+          > k and (l[k].days_until | int(9)) == 0 else ('black' if l | count > k
+          else 'transparent') }}
+      name:
+        width: 100%
+        text-align: center
+        font-size: 20px
+        font-weight: 700
+        letter-spacing: 2px
+        word-wrap: anywhere
+        hyphens: auto
+        line-height: 22px
+        color: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{%
+          set l = state_attr('sensor.kalender', 'events') | default([], true) |
+          rejectattr('status', 'eq', 'past') | list %}{{ 'white' if l | count >
+          k and (l[k].days_until | int(9)) == 0 else 'black' }}
+      state:
+        width: 100%
+        text-align: center
+        font-size: 30px
+        font-weight: 800
+        word-wrap: anywhere
+        hyphens: auto
+        line-height: 34px
+        color: >-
+          {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0
+          if m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes
+          Gericht', 'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{%
+          set l = state_attr('sensor.kalender', 'events') | default([], true) |
+          rejectattr('status', 'eq', 'past') | list %}{{ 'white' if l | count >
+          k and (l[k].days_until | int(9)) == 0 else 'black' }}
+  - layout: name_state
+    name: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0 if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{{ (l[k].summary |
+      default('–', true)) if l | count > k else ' ' }}
+    state: >-
+      {% set m = states('sensor.tandoor_heutiges_abendessen') %}{% set k = 0 if
+      m not in ['', 'unknown', 'unavailable', 'none', 'Kein geplantes Gericht',
+      'Kein Rezeptname verfügbar'] and now().hour < 22 else 1 %}{% set l =
+      state_attr('sensor.kalender', 'events') | default([], true) |
+      rejectattr('status', 'eq', 'past') | list %}{% if l | count > k %}{% set d
+      = l[k].days_until | int(0) %}{% set n = d // 7 %}{% set w = ('in >' if d %
+      7 else 'in ') ~ n ~ (' Wochen' if n > 1 else ' Woche') if 7 <= d and d <
+      28 else (l[k].starts_in | default('', true) | string) %}{% set z =
+      l[k].start_time | default('', true) | string %}{{ [w[:1] | upper ~ w[1:],
+      '' if z | lower == 'ganztägig' else z] | select | join(' · ') }}{% endif %}
+    styles:
+      button:
+        grid-area: e2
+        width: 100%
+        min-width: 0px
+        justify-content: flex-start
+        align-items: flex-start
+        overflow: hidden
+      name:
+        width: 100%
+        max-width: 283px
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 34px
+        font-weight: 800
+        line-height: 37px
+      state:
+        width: 100%
+        max-width: 283px
+        margin-top: 9px
+        text-align: left
+        word-wrap: anywhere
+        hyphens: auto
+        white-space: nowrap
+        overflow: hidden
+        text-overflow: ellipsis
+        font-size: 22px
+        font-weight: 500
+        line-height: 29px
+  - layout: icon|name|state
+    icon: mdi:cat
+    name: >-
+      {% set f = states('sensor.schmeckt_s_letztes_futter') %}{{ f if f not in
+      ['unknown', 'unavailable', 'none', ''] else 'Füttern vergessen?' }}
+    state: >-
+      {% set x = ['unknown', 'unavailable', 'none', ''] %}{% set f =
+      states('sensor.schmeckt_s_letztes_futter') %}{% set u =
+      states('sensor.schmeckt_s_gefuttert_um') %}{% set v =
+      states('sensor.schmeckt_s_gefuttert_von') %}{% set d = as_datetime(u,
+      none) if u not in x else none %}{% set z = '' if u in x else ((d |
+      as_local).strftime('%H:%M') if d is not none else u) %}{% set w = '' if v
+      in x else v %}{{ '😨' if f in x else (((z ~ ' · ' ~ w) if z and w else (z
+      ~ w)) or '–') }}
+    styles:
+      button:
+        grid-area: ca
+        align-self: center
+      icon:
+        --mdc-icon-size: 24px
+        margin-right: 6px
+      name:
+        flex: 0 1 auto
+        min-width: 0px
+        max-width: >-
+          {{ 'none' if states('sensor.schmeckt_s_letztes_futter') in ['unknown',
+          'unavailable', 'none', ''] else '190px' }}
+        margin-right: >-
+          {{ '0px' if states('sensor.schmeckt_s_letztes_futter') in ['unknown',
+          'unavailable', 'none', ''] else '12px' }}
+        text-overflow: ellipsis
+        line-height: 30px
+      state:
+        flex: 0 0 auto
+        margin-left: >-
+          {{ '8px' if states('sensor.schmeckt_s_letztes_futter') in ['unknown',
+          'unavailable', 'none', ''] else 'auto' }}
+        font-weight: 700
+        line-height: 30px
+  - name: ' '
+    styles:
+      button:
+        grid-area: rd
+        width: 100%
+        height: 2px
+        align-self: center
+        background: black
+        overflow: hidden
+      name:
+        font-size: 0px
+        line-height: 0
+  - layout: icon|name|state
+    icon: >-
+      {% set e = states.sensor.eink_dash_zuletzt_aktualisiert %}{{ 'mdi:sync' if
+      e is not none and e.state not in ['unknown', 'unavailable'] and (now() -
+      e.last_changed).total_seconds() <= 3600 else 'mdi:sync-alert' }}
+    name: Stand
+    state: >-
+      {% set e = states.sensor.eink_dash_zuletzt_aktualisiert %}{{
+      (e.last_changed | as_local).strftime('%H:%M') if e is not none else '–' }}
+    styles:
+      button:
+        grid-area: fl
+        align-self: center
+      icon:
+        --mdc-icon-size: 20px
+        margin-right: 10px
+      name:
+        flex: 0 0 auto
+        font-size: 22px
+        font-weight: 500
+        line-height: 30px
+      state:
+        flex: 0 0 auto
+        margin-left: 8px
+        font-size: 22px
+        font-weight: 700
+        line-height: 30px
+  - layout: icon|name
+    icon: mdi:battery-outline
+    state_icons:
+      voll: mdi:battery
+      hoch: mdi:battery-high
+      mittel: mdi:battery-medium
+      niedrig: mdi:battery-low
+      leer: mdi:battery-alert
+    state: >-
+      {% set p = states('sensor.eink_dash_akku') | float(none) %}{{ 'voll' if p
+      is not none and p >= 85 else ('hoch' if p is not none and p >= 60 else
+      ('mittel' if p is not none and p >= 35 else ('niedrig' if p is not none
+      and p >= 15 else ('leer' if p is not none else '–')))) }}
+    name: >-
+      {% set p = states('sensor.eink_dash_akku') | float(none) %}{{ ((p |
+      round(0) | int) ~ ' %') if p is not none else '–' }}
+    styles:
+      button:
+        grid-area: fr
+        align-self: center
+        justify-content: flex-end
+      icon:
+        --mdc-icon-size: 34px
+        margin-right: 5px
+        transform: rotate(90deg)
+        color: >-
+          {% set p = states('sensor.eink_dash_akku') | float(none) %}{{
+          '#b40010' if p is not none and p < 20 else 'black' }}
+      name:
+        flex: 0 0 auto
+        font-size: 22px
+        font-weight: 700
+        line-height: 30px
+        color: >-
+          {% set p = states('sensor.eink_dash_akku') | float(none) %}{{
+          '#b40010' if p is not none and p < 20 else 'black' }}

@@ -1,0 +1,465 @@
+# ──────────────────────────────────────────────────────────────────────
+#  E-Ink dashboard · generic Paper Buttons Row card · 800 × 480
+#
+#  Needs   Paper Buttons Row (HACS) · Puppet add-on · sensors.yaml
+#  Edit    weather.forecast_home · sensor.eink_battery (search & replace)
+#  Layout  images/grid.png – every button sits in one named grid area
+# ──────────────────────────────────────────────────────────────────────
+type: custom:paper-buttons-row
+
+# The row container becomes the canvas: an 800 × 480 CSS grid.
+# Columns add up to 800 px (1fr = the rest), rows to 480 px.
+styles:
+  display: grid
+  width: 800px
+  background: linear-gradient(90deg, black 335px, white 335px) # hard stop = black left panel
+  --pbs-button-bg-color: transparent
+  --eink-accent: "#b40010" # today + low battery · #ff0000 for b/w/red panels, black for b/w
+  grid-template-columns: 30px 94px 26px 155px 30px 35px 82px 30px 118px 1fr 35px
+  grid-template-rows: 30px 44px 16px 2px 32px 6px 82px 6px 32px 82px 38px 30px 12px 2px 12px 30px 24px
+  grid-template-areas: >-
+    ".    .    .    .    .    .    .    .    .    .    ."
+    ".    cond cond cond .    .    date date date date ."
+    ".    .    .    .    .    .    .    .    .    .    ."
+    ".    hr1  hr1  hr1  .    .    hr2  hr2  hr2  hr2  ."
+    ".    .    .    .    .    .    .    .    .    .    ."
+    ".    icon .    temp .    .    .    .    .    .    ."
+    ".    icon .    temp .    .    day1 .    ev1  ev1  ."
+    ".    icon .    temp .    .    .    .    .    .    ."
+    ".    fcst fcst fcst .    .    .    .    .    .    ."
+    ".    fcst fcst fcst .    .    day2 .    ev2  ev2  ."
+    ".    fcst fcst fcst .    .    .    .    .    .    ."
+    ".    fcst fcst fcst .    .    info info info info ."
+    ".    fcst fcst fcst .    .    .    .    .    .    ."
+    ".    fcst fcst fcst .    .    hr3  hr3  hr3  hr3  ."
+    ".    fcst fcst fcst .    .    .    .    .    .    ."
+    ".    fcst fcst fcst .    .    foot foot foot batt ."
+    ".    .    .    .    .    .    .    .    .    .    ."
+
+# Deep-merged into every button: no taps, no padding, black 22 px text
+base_config:
+  layout: name
+  ripple: none
+  tap_action:
+    action: none
+  styles:
+    button:
+      padding: 0px
+      justify-content: flex-start
+      background: transparent
+      box-shadow: none
+      border-radius: 0px
+    icon:
+      color: black
+      margin-right: 8px
+    name: &text
+      padding: 0px
+      white-space: nowrap
+      overflow: hidden
+      font-size: 22px
+      font-weight: 500
+      color: black
+    state: *text # same as name
+
+buttons:
+  # ═══ LEFT · white on black ═════════════════════════════════════════
+
+  # cond · condition as text (translate here)
+  - name: >-
+      {{ {'sunny': 'Sunny', 'clear-night': 'Clear', 'partlycloudy': 'Partly cloudy',
+      'cloudy': 'Cloudy', 'fog': 'Fog', 'rainy': 'Rain', 'pouring': 'Heavy rain',
+      'snowy': 'Snow', 'snowy-rainy': 'Sleet', 'hail': 'Hail', 'lightning': 'Thunder',
+      'lightning-rainy': 'Thunderstorm', 'windy': 'Windy', 'windy-variant': 'Windy',
+      'exceptional': 'Alert'}.get(states('weather.forecast_home'), '–') }}
+    styles:
+      button:
+        grid-area: cond
+      name:
+        width: 100%
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 34px
+        font-weight: 700
+        line-height: 44px
+        color: white
+
+  # hr1 · a line is just an empty button, 2 px high
+  - name: " "
+    styles:
+      button:
+        grid-area: hr1
+        width: 100%
+        height: 2px
+        align-self: center
+        overflow: hidden
+        background: white
+      name:
+        font-size: 0px
+        line-height: 0
+
+  # icon · state = condition → state_icons picks the icon
+  - layout: icon
+    icon: mdi:weather-cloudy # fallback – required for state_icons
+    state: "{{ states('weather.forecast_home') }}"
+    state_icons:
+      sunny: mdi:weather-sunny
+      clear-night: mdi:weather-night
+      partlycloudy: mdi:weather-partly-cloudy
+      cloudy: mdi:weather-cloudy
+      fog: mdi:weather-fog
+      rainy: mdi:weather-rainy
+      pouring: mdi:weather-pouring
+      snowy: mdi:weather-snowy
+      snowy-rainy: mdi:weather-snowy-rainy
+      hail: mdi:weather-hail
+      lightning: mdi:weather-lightning
+      lightning-rainy: mdi:weather-lightning-rainy
+      windy: mdi:weather-windy
+      windy-variant: mdi:weather-windy-variant
+      exceptional: mdi:weather-cloudy-alert
+    styles:
+      button:
+        grid-area: icon
+        align-self: center
+      icon:
+        --mdc-icon-size: 94px
+        margin-right: 0px
+        color: white
+
+  # temp · current temperature (or your own outdoor sensor)
+  - layout: state
+    state: >-
+      {%- set t = state_attr('weather.forecast_home', 'temperature') | float(none) -%}
+      {{ (t | round(0) | int) ~ '°' if t is not none else '–' }}
+    styles:
+      button:
+        grid-area: temp
+        align-self: center
+      state:
+        width: 100%
+        text-align: left
+        font-size: 90px
+        font-weight: 800
+        line-height: 90px
+        color: white
+
+  # fcst · low/high + forecast text, sits at the bottom of its area
+  - layout: name_state
+    name: >-
+      {%- set lo = state_attr('sensor.eink_weather', 'low') | float(none) -%}
+      {%- set hi = state_attr('sensor.eink_weather', 'high') | float(none) -%}
+      {{ (lo | round(0) | int) ~ '° to ' ~ (hi | round(0) | int) ~ '°'
+      if lo is not none and hi is not none else '–' }}
+    state: "{{ state_attr('sensor.eink_weather', 'text') or '' }}"
+    styles:
+      button:
+        grid-area: fcst
+        align-self: end
+        align-items: flex-start
+        max-height: 208px
+        overflow: hidden
+      name:
+        width: 100%
+        margin-bottom: 16px
+        text-align: left
+        white-space: normal
+        font-size: 34px
+        font-weight: 700
+        line-height: 34px
+        color: white
+      state:
+        width: 100%
+        text-align: left
+        white-space: normal
+        text-wrap: balance
+        font-size: 24px
+        font-weight: 500
+        line-height: 32px
+        color: white
+
+  # ═══ RIGHT · black on white ════════════════════════════════════════
+
+  # date · "Monday, 5 Oct" (translate here)
+  - name: >-
+      {{ ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+      'Sunday'][now().weekday()] }}, {{ now().day }} {{ ['Jan', 'Feb', 'Mar',
+      'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now().month - 1] }}
+    styles:
+      button:
+        grid-area: date
+      name:
+        width: 100%
+        text-align: left
+        font-size: 34px
+        font-weight: 700
+        line-height: 44px
+
+  # hr2
+  - name: " "
+    styles:
+      button:
+        grid-area: hr2
+        width: 100%
+        height: 2px
+        align-self: center
+        overflow: hidden
+        background: black
+      name:
+        font-size: 0px
+        line-height: 0
+
+  # day1 · badge of event 1 – accent when it's today
+  - layout: name_state
+    name: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[0].wd if e | count > 0 else '' }}
+    state: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[0].day if e | count > 0 else '' }}
+    styles:
+      button:
+        grid-area: day1
+        align-self: center
+        justify-content: center
+        box-sizing: border-box
+        width: 82px
+        height: 82px
+        border-style: solid
+        border-width: 2px
+        border-radius: 8px
+        overflow: hidden
+        border-color: >-
+          {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+          {{ 'transparent' if e | count < 1 else 'var(--eink-accent)' if e[0].today else 'black' }}
+        background: >-
+          {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+          {{ 'var(--eink-accent)' if e | count > 0 and e[0].today else 'transparent' }}
+        --badge-fg: >-
+          {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+          {{ 'white' if e | count > 0 and e[0].today else 'black' }}
+      name:
+        width: 100%
+        text-align: center
+        font-size: 20px
+        font-weight: 700
+        letter-spacing: 2px
+        line-height: 22px
+        color: var(--badge-fg, black)
+      state:
+        width: 100%
+        text-align: center
+        font-size: 30px
+        font-weight: 800
+        line-height: 34px
+        color: var(--badge-fg, black)
+
+  # ev1 · title + "Today · 14:45"
+  - layout: name_state
+    name: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[0].title if e | count > 0 else 'No events' }}
+    state: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[0].when if e | count > 0 else '' }}
+    styles:
+      button:
+        grid-area: ev1
+        width: 100%
+        min-width: 0px
+        align-items: flex-start
+        overflow: hidden
+      name:
+        width: 100%
+        max-width: 283px # = area width, so the ellipsis kicks in
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 34px
+        font-weight: 800
+        line-height: 37px
+      state:
+        width: 100%
+        max-width: 283px
+        margin-top: 9px
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 22px
+        font-weight: 500
+        line-height: 29px
+
+  # day2 · same as day1, index 1
+  - layout: name_state
+    name: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[1].wd if e | count > 1 else '' }}
+    state: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[1].day if e | count > 1 else '' }}
+    styles:
+      button:
+        grid-area: day2
+        align-self: center
+        justify-content: center
+        box-sizing: border-box
+        width: 82px
+        height: 82px
+        border-style: solid
+        border-width: 2px
+        border-radius: 8px
+        overflow: hidden
+        border-color: >-
+          {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+          {{ 'transparent' if e | count < 2 else 'var(--eink-accent)' if e[1].today else 'black' }}
+        background: >-
+          {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+          {{ 'var(--eink-accent)' if e | count > 1 and e[1].today else 'transparent' }}
+        --badge-fg: >-
+          {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+          {{ 'white' if e | count > 1 and e[1].today else 'black' }}
+      name:
+        width: 100%
+        text-align: center
+        font-size: 20px
+        font-weight: 700
+        letter-spacing: 2px
+        line-height: 22px
+        color: var(--badge-fg, black)
+      state:
+        width: 100%
+        text-align: center
+        font-size: 30px
+        font-weight: 800
+        line-height: 34px
+        color: var(--badge-fg, black)
+
+  # ev2 · same as ev1, index 1
+  - layout: name_state
+    name: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[1].title if e | count > 1 else '' }}
+    state: >-
+      {%- set e = state_attr('sensor.eink_events', 'events') or [] -%}
+      {{ e[1].when if e | count > 1 else '' }}
+    styles:
+      button:
+        grid-area: ev2
+        width: 100%
+        min-width: 0px
+        align-items: flex-start
+        overflow: hidden
+      name:
+        width: 100%
+        max-width: 283px
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 34px
+        font-weight: 800
+        line-height: 37px
+      state:
+        width: 100%
+        max-width: 283px
+        margin-top: 9px
+        text-align: left
+        text-overflow: ellipsis
+        font-size: 22px
+        font-weight: 500
+        line-height: 29px
+
+  # info · one status line: icon · text … value (pet fed, trash day, washer …)
+  - layout: icon|name|state
+    icon: >-
+      {{ 'mdi:weather-sunset-down' if is_state('sun.sun', 'above_horizon')
+      else 'mdi:weather-sunset-up' }}
+    name: "{{ 'Sunset' if is_state('sun.sun', 'above_horizon') else 'Sunrise' }}"
+    state: >-
+      {%- set t = state_attr('sun.sun', 'next_setting' if is_state('sun.sun',
+      'above_horizon') else 'next_rising') -%}
+      {{ (as_datetime(t) | as_local).strftime('%H:%M') if t else '–' }}
+    styles:
+      button:
+        grid-area: info
+        align-self: center
+      icon:
+        --mdc-icon-size: 24px
+        margin-right: 6px
+      name:
+        flex: 0 1 auto
+        min-width: 0px
+        max-width: 190px # long text ends in … before it crowds the value
+        margin-right: 12px
+        text-overflow: ellipsis
+        line-height: 30px
+      state:
+        flex: 0 0 auto
+        margin-left: auto # pushes the value to the right edge
+        font-weight: 700
+        line-height: 30px
+
+  # hr3
+  - name: " "
+    styles:
+      button:
+        grid-area: hr3
+        width: 100%
+        height: 2px
+        align-self: center
+        overflow: hidden
+        background: black
+      name:
+        font-size: 0px
+        line-height: 0
+
+  # foot · render time = the moment your display fetched the image
+  - layout: icon|name|state
+    icon: mdi:sync
+    name: Updated
+    state: "{{ now().strftime('%H:%M') }}"
+    styles:
+      button:
+        grid-area: foot
+        align-self: center
+      icon:
+        --mdc-icon-size: 20px
+        margin-right: 10px
+      name:
+        flex: 0 0 auto
+        line-height: 30px
+      state:
+        flex: 0 0 auto
+        margin-left: 8px
+        font-weight: 700
+        line-height: 30px
+
+  # batt · state = level word → state_icons; icon rotated to lie flat
+  - layout: icon|name
+    icon: mdi:battery-outline # fallback – required for state_icons
+    state: >-
+      {%- set p = states('sensor.eink_battery') | float(none) -%}
+      {{ 'none' if p is none else 'full' if p >= 85 else 'high' if p >= 60
+      else 'medium' if p >= 35 else 'low' if p >= 15 else 'empty' }}
+    state_icons:
+      full: mdi:battery
+      high: mdi:battery-high
+      medium: mdi:battery-medium
+      low: mdi:battery-low
+      empty: mdi:battery-alert
+    name: >-
+      {%- set p = states('sensor.eink_battery') | float(none) -%}
+      {{ (p | round(0) | int) ~ ' %' if p is not none else '–' }}
+    styles:
+      button:
+        grid-area: batt
+        align-self: center
+        justify-content: flex-end
+        --batt-color: >-
+          {{ 'var(--eink-accent)' if states('sensor.eink_battery') | float(100) < 20
+          else 'black' }}
+      icon:
+        --mdc-icon-size: 34px
+        margin-right: 5px
+        transform: rotate(90deg)
+        color: var(--batt-color, black)
+      name:
+        flex: 0 0 auto
+        font-weight: 700
+        line-height: 30px
+        color: var(--batt-color, black)

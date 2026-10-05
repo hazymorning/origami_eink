@@ -1,0 +1,113 @@
+# ──────────────────────────────────────────────────────────────────────
+#  Template sensors for card.yaml
+#
+#  Where   as a package (packages/eink.yaml) or merged into your template:
+#  Edit    calendar.family · weather.forecast_home
+#  Result  sensor.eink_events · sensor.eink_weather
+# ──────────────────────────────────────────────────────────────────────
+template:
+  # ── sensor.eink_events ── next events, pre-formatted for badge + text
+  - triggers:
+      - trigger: time_pattern
+        minutes: /15
+      - trigger: homeassistant
+        event: start
+    actions:
+      - action: calendar.get_events
+        target:
+          entity_id:
+            - calendar.family # ← your calendars (as many as you like)
+        data:
+          duration:
+            days: 60
+        response_variable: cal
+    sensor:
+      - name: Eink Events
+        unique_id: eink_events
+        icon: mdi:calendar-text
+        state: "{{ cal.values() | map(attribute='events') | map('count') | sum }}"
+        attributes:
+          # [{title, when: "Today · 14:45", wd: "MO", day: 5, today: true}, …]
+          events: >-
+            {%- set wd = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] -%}
+            {%- set label = {} -%}
+            {#- optional text after all-day events: {'calendar.mealie_dinner': 'Dinner'} -#}
+            {%- set ns = namespace(out=[]) -%}
+            {%- for id, c in cal.items() -%}
+              {%- for e in c.events -%}
+                {%- set all_day = 'T' not in e.start -%}
+                {%- set dt = strptime(e.start, '%Y-%m-%d') if all_day
+                      else as_datetime(e.start) | as_local -%}
+                {%- set n = [(dt.date() - now().date()).days, 0] | max -%}
+                {%- set day = now() + timedelta(days=n) -%}
+                {%- set rel = 'Today' if n == 0 else 'Tomorrow' if n == 1
+                      else 'In ' ~ n ~ ' days' if n < 7
+                      else 'In ' ~ (n // 7) ~ (' week' if n < 14 else ' weeks') -%}
+                {%- set time = label.get(id, '') if all_day else dt.strftime('%H:%M') -%}
+                {%- set ns.out = ns.out + [{
+                      'key': day.strftime('%Y%m%d') if all_day else dt.strftime('%Y%m%d%H%M'),
+                      'title': e.summary,
+                      'when': [rel, time] | select | join(' · '),
+                      'wd': wd[day.weekday()],
+                      'day': day.day,
+                      'today': n == 0}] -%}
+              {%- endfor -%}
+            {%- endfor -%}
+            {{ (ns.out | sort(attribute='key'))[:4] }}
+
+  # ── sensor.eink_weather ── today's low/high + a short forecast text
+  - triggers:
+      - trigger: time_pattern
+        hours: /1
+      - trigger: homeassistant
+        event: start
+    actions:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_home # ← your weather
+        data:
+          type: daily
+        response_variable: daily
+      - action: weather.get_forecasts
+        continue_on_error: true # not every integration has hourly
+        target:
+          entity_id: weather.forecast_home # ← your weather
+        data:
+          type: hourly
+        response_variable: hourly
+      # Optional: let an AI write the text (needs an AI Task entity)
+      # - action: ai_task.generate_data
+      #   continue_on_error: true
+      #   data:
+      #     task_name: E-ink forecast
+      #     instructions: >-
+      #       Describe the weather for the rest of today in one friendly
+      #       sentence, max 70 characters, no emojis. Hourly forecast:
+      #       {{ (hourly.values() | first).forecast[:12] | to_json }}
+      #   response_variable: ai
+    sensor:
+      - name: Eink Weather
+        unique_id: eink_weather
+        icon: mdi:weather-partly-cloudy
+        state: "{{ ((daily.values() | first).forecast | first).condition }}"
+        attributes:
+          low: "{{ ((daily.values() | first).forecast | first).templow }}"
+          high: "{{ ((daily.values() | first).forecast | first).temperature }}"
+          # "Rain from 15:00. Tomorrow 9° to 15°." – or the AI sentence
+          text: >-
+            {%- if ai is defined and ai.data is string -%}
+              {{ ai.data }}
+            {%- else -%}
+              {%- set d = (daily.values() | first).forecast -%}
+              {%- set h = ((hourly.values() | first).forecast if hourly is defined else [])[:12] -%}
+              {%- set wet = h | selectattr('condition', 'in', ['rainy', 'pouring',
+                    'lightning-rainy', 'snowy', 'snowy-rainy', 'hail']) | list -%}
+              {%- set tm = d[1] if d | count > 1 else {} -%}
+              {%- set a = (('Snow' if 'snow' in wet[0].condition else 'Rain') ~ ' from '
+                    ~ (as_datetime(wet[0].datetime) | as_local).strftime('%H:%M') ~ '.') if wet
+                    else ('Dry for the next 12 hours.' if h else '') -%}
+              {%- set b = ('Tomorrow ' ~ (tm.templow | round(0) | int) ~ '° to '
+                    ~ (tm.temperature | round(0) | int) ~ '°.')
+                    if tm.templow is number and tm.temperature is number else '' -%}
+              {{ [a, b] | select | join(' ') }}
+            {%- endif -%}
